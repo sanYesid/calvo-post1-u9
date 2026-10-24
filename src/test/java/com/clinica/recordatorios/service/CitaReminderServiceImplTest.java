@@ -32,10 +32,10 @@ class CitaReminderServiceImplTest {
     @Mock
     private ReminderChannel reminderChannelMock;
 
-    // Fake: deliberadamente NO se mockea con Mockito. Clock.fixed(...) es
-    // una implementación real y completa de java.time.Clock: se comporta
-    // exactamente igual que en producción (LocalDateTime.now(clock) sigue
-    // funcionando de verdad), solo que con un instante congelado.
+    @Mock
+    private ReminderChannel canalUrgenteMock;
+
+    
     private final Clock clockFijo =
             Clock.fixed(Instant.parse("2026-08-10T09:00:00Z"), ZoneId.of("UTC"));
 
@@ -43,8 +43,8 @@ class CitaReminderServiceImplTest {
 
     @BeforeEach
     void setup() {
-        citaReminderService =
-                new CitaReminderServiceImpl(citaRepository, reminderChannelFactory, clockFijo);
+        citaReminderService = new CitaReminderServiceImpl(
+                citaRepository, reminderChannelFactory, canalUrgenteMock, clockFijo);
     }
 
     @Test
@@ -79,9 +79,7 @@ class CitaReminderServiceImplTest {
         verify(citaRepository).findByFechaHoraCitaBetweenAndRecordatorioEnviadoFalse(
                 desdeCaptor.capture(), hastaCaptor.capture());
 
-        // Con Clock.systemDefaultZone() esta aserción sería no determinista
-        // (cambiaría en cada ejecución); con el Fake, el resultado es exacto
-        // y reproducible en cualquier máquina y a cualquier hora del día.
+        
         assertEquals(LocalDateTime.of(2026, 8, 10, 9, 0), desdeCaptor.getValue());
         assertEquals(LocalDateTime.of(2026, 8, 11, 9, 0), hastaCaptor.getValue());
     }
@@ -96,5 +94,44 @@ class CitaReminderServiceImplTest {
         assertEquals(0, enviados);
         verifyNoInteractions(reminderChannelFactory);
         verify(citaRepository, never()).save(any());
+    }
+
+    @Test
+    void enviarRecordatorioUrgente_citaExistente_usaCanalUrgenteInyectado() {
+        Cita cita = new Cita(5L, "Luis Peña", "3001234567",
+                LocalDateTime.of(2026, 8, 10, 10, 30), CanalNotificacion.SMS, false);
+        when(citaRepository.findById(5L)).thenReturn(java.util.Optional.of(cita));
+
+        citaReminderService.enviarRecordatorioUrgente(5L);
+
+        verify(canalUrgenteMock, times(1)).enviar(eq(cita), contains("URGENTE"));
+        verify(citaRepository).save(cita);
+        assertTrue(cita.isRecordatorioEnviado());
+    }
+
+    @Test
+    void enviarRecordatorioUrgente_gatewayFalla_noMarcaComoEnviado() {
+        
+        Cita cita = new Cita(6L, "Marta Ruiz", "3009876543",
+                LocalDateTime.of(2026, 8, 10, 10, 30), CanalNotificacion.SMS, false);
+        when(citaRepository.findById(6L)).thenReturn(java.util.Optional.of(cita));
+
+        doThrow(new RuntimeException("Gateway de SMS no disponible"))
+                .when(canalUrgenteMock).enviar(any(), anyString());
+
+        assertThrows(RuntimeException.class,
+                () -> citaReminderService.enviarRecordatorioUrgente(6L));
+
+        verify(citaRepository, never()).save(any());
+    }
+
+    @Test
+    void enviarRecordatorioUrgente_citaInexistente_lanzaCitaNoEncontradaException() {
+        when(citaRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+
+        assertThrows(CitaNoEncontradaException.class,
+                () -> citaReminderService.enviarRecordatorioUrgente(99L));
+
+        verifyNoInteractions(canalUrgenteMock);
     }
 }
