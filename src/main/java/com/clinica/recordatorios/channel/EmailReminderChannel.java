@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 public class EmailReminderChannel implements ReminderChannel {
     @Override
     public void enviar(Cita cita, String mensaje) {
-        // En producción: cliente SMTP real.
+        
         System.out.printf("[EMAIL a %s] %s\n", cita.getPacienteContacto(), mensaje);
     }
 }
