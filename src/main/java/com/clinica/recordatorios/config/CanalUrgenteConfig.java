@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class CanalUrgenteConfig {
-    
     @Bean
     public ReminderChannel canalUrgente(NotificadorSmsGateway gateway) {
         return new SmsReminderChannel(gateway);

@@ -7,6 +7,6 @@ public class TwilioNotificadorSmsGateway implements NotificadorSmsGateway {
     @Override
     public void enviarSms(String numeroDestino, String texto) {
         // En producción: llamada HTTP real a la API de un proveedor de SMS.
-        System.out.printf("[SMS a %s] %s\n", numeroDestino, texto);
+        System.out.printf("[SMS a %s] %s%n", numeroDestino, texto);
     }
 }
