@@ -22,9 +22,9 @@ src/main/java/com/clinica/recordatorios/
 
 ## Parte 1 — Pruebas Unitarias con JUnit 5 y Mockito
 
-`CitaReminderServiceImplTest` aísla `CitaReminderServiceImpl` de sus colaboradores usando `@ExtendWith(MockitoExtension.class)`. Cubre la selección de canal por la preferencia de la cita, la ventana exacta de 24 horas (gracias a un reloj fijo) y el caso sin citas pendientes. La justificación de cada Test Double está en "Decisiones de diseño".
+`CitaReminderServiceImplTest` aísla `CitaReminderServiceImpl` de sus colaboradores usando `@ExtendWith(MockitoExtension.class)`. Cubre la selección de canal según la preferencia de la cita (EMAIL y SMS), la ventana exacta de 24 horas (gracias a un reloj fijo) y el caso sin citas pendientes. La justificación de cada Test Double está en "Decisiones de diseño".
 
-Evidencia: 3 pruebas del servicio en verde (4 en total con la prueba de carga de contexto que genera Spring Initializr).
+Evidencia: 3 pruebas del servicio en verde al cierre de la Parte 1 (4 en total con la prueba de carga de contexto que genera Spring Initializr).
 
 ![Parte 1 — pruebas en verde](capturas/parte1-pruebas-verde.jpg)
 
@@ -50,7 +50,7 @@ Sobre ese mismo proyecto se agregaron:
 
 ![Paso 10 — SpringBootTest](capturas/paso10-springboottest.jpg)
 
-**mvn verify:**
+**mvn verify — 10 pruebas en verde (7 unitarias, 1 `@DataJpaTest`, 1 `@SpringBootTest`, 1 `contextLoads`):**
 
 ![mvn verify](capturas/mvn-verify.jpg)
 
@@ -60,7 +60,7 @@ Sobre ese mismo proyecto se agregaron:
 
 **Pipeline de GitHub Actions (estado Success):**
 
-![GitHub Actions — Success](capturas/github-actions-success.jpg)
+![GitHub Actions — Success](capturas/github-actions-success.png)
 
 ## Decisiones de diseño
 
@@ -71,7 +71,7 @@ El criterio fue la tabla de Test Doubles de la guía: si la prueba solo necesita
 | Colaborador | Double | Justificación |
 |---|---|---|
 | `CitaRepository` | **Mock** | No basta con devolver una lista desde `findByFechaHoraCitaBetween...`: la prueba también verifica que `save()` se llama exactamente una vez con la cita ya marcada como enviada, y que nunca se llama cuando no hay citas. Controlar la respuesta y verificar la interacción a la vez es un Mock, no un Stub. |
-| `ReminderChannelFactory` | **Mock** | El comportamiento bajo prueba es la selección de estrategia: que el servicio pida el canal `EMAIL` cuando la cita lo prefiere. Eso solo se comprueba verificando la interacción. En la prueba sin citas se usa `verifyNoInteractions` para demostrar que la factory ni siquiera se consulta. |
+| `ReminderChannelFactory` | **Mock** | El comportamiento bajo prueba es la selección de estrategia: que el servicio pida el canal `EMAIL` o `SMS` según la preferencia de la cita, comprobado con `verify(reminderChannelFactory).obtenerCanal(...)`. Eso solo se comprueba verificando la interacción. En la prueba sin citas se usa `verifyNoInteractions` para demostrar que la factory ni siquiera se consulta. |
 | `ReminderChannel` (canal devuelto por la factory) | **Mock** | Lo que importa es que el canal elegido reciba la cita y el mensaje (`verify(...).enviar(eq(cita), anyString())`). No hay valor de retorno que comprobar: el método es `void`. |
 | `ReminderChannel` `canalUrgente` | **Mock** | Permite verificar que el mensaje contiene "URGENTE" y, sobre todo, simular un fallo con `doThrow` para comprobar que la cita no se marca como enviada. |
 | `Clock` | **Fake** (no Mock) | `Clock.fixed(...)` es una implementación real y completa de `java.time.Clock` provista por el JDK: `LocalDateTime.now(clock)` funciona exactamente igual que en producción, solo que con el instante congelado. Mockearlo obligaría a stubbear `instant()` y `getZone()` por separado y arriesgaría un comportamiento distinto del real. Con el fake, la aserción de la ventana (`2026-08-10T09:00` a `2026-08-11T09:00`) es exacta y reproducible a cualquier hora y en cualquier máquina; con `Clock.systemDefaultZone()` cambiaría en cada ejecución. |
@@ -82,8 +82,8 @@ No quedó ningún Stub puro porque en todas las pruebas se verifica además la i
 
 | Patrón | Prueba que facilita | Sin el patrón |
 |---|---|---|
-| **Strategy** (`ReminderChannel`) | `enviarRecordatoriosPendientes_citaEnVentana_usaElCanalPreferido` y las tres pruebas de `enviarRecordatorioUrgente` | La lógica de envío (SMTP o llamada HTTP al proveedor SMS) estaría escrita en línea dentro del servicio. Probar la selección de canal exigiría mockear librerías de bajo nivel en vez de una sola interfaz propia con un método `enviar()`. Con Strategy, un único `@Mock ReminderChannel` sirve para verificar cualquier canal y para simular fallos. |
-| **Factory Method** (`ReminderChannelFactory`) | `..._citaEnVentana_usaElCanalPreferido` (stub de `obtenerCanal(EMAIL)`) y `..._sinCitasPendientes_noConsultaLaFactory` | El servicio tendría un `if/else` o `switch` embebido para decidir el canal, y esa decisión solo sería observable de forma indirecta (revisando qué se imprimió o qué se envió realmente). Con la factory inyectada, la selección es una interacción explícita y verificable, y se puede afirmar que no ocurre cuando no hay citas. |
+| **Strategy** (`ReminderChannel`) | `enviarRecordatoriosPendientes_citaEnVentana_usaElCanalPreferido`, `enviarRecordatoriosPendientes_citaPrefiereSms_usaCanalSms` y las tres pruebas de `enviarRecordatorioUrgente` | La lógica de envío (SMTP o llamada HTTP al proveedor SMS) estaría escrita en línea dentro del servicio. Probar la selección de canal exigiría mockear librerías de bajo nivel en vez de una sola interfaz propia con un método `enviar()`. Con Strategy, un único `@Mock ReminderChannel` sirve para verificar cualquier canal y para simular fallos. |
+| **Factory Method** (`ReminderChannelFactory`) | `..._citaEnVentana_usaElCanalPreferido`, `..._citaPrefiereSms_usaCanalSms` y `..._sinCitasPendientes_noConsultaLaFactory` | El servicio tendría un `if/else` o `switch` embebido para decidir el canal, y esa decisión solo sería observable de forma indirecta (revisando qué se imprimió o qué se envió realmente). Con la factory inyectada, la selección es una interacción explícita: `verify(reminderChannelFactory).obtenerCanal(EMAIL)` o `obtenerCanal(SMS)`, y se puede afirmar que no ocurre cuando no hay citas. |
 | **Inyección por constructor / DIP** | Todas las pruebas unitarias, y en especial `enviarRecordatorioUrgente_gatewayFalla_noMarcaComoEnviado` | Si el servicio construyera sus colaboradores con `new`, no habría ningún punto donde sustituirlos por un Test Double (ver siguiente sección). |
 
 ### 3. Diagnóstico antes del refactor: por qué `enviarRecordatorioUrgente` no se podía testear
@@ -143,7 +143,7 @@ public CitaReminderServiceImpl(CitaRepository citaRepository,
 canalUrgente.enviar(cita, "URGENTE: ...");
 ```
 
-El comportamiento externo no cambió, pero ahora la prueba sustituye `canalUrgente` por un mock sin que `TwilioNotificadorSmsGateway` participe. La prueba `enviarRecordatorioUrgente_gatewayFalla_noMarcaComoEnviado` configura el mock con `doThrow(...)` y verifica `never().save(...)`: es la evidencia de que la testabilidad es consecuencia directa de aplicar DIP.
+El comportamiento externo no cambió, pero ahora la prueba sustituye `canalUrgente` por un mock sin que `TwilioNotificadorSmsGateway` participe. La prueba `enviarRecordatorioUrgente_gatewayFalla_noMarcaComoEnviado` configura el mock con `doThrow(...)`, verifica `never().save(...)` y comprueba con `assertFalse` que la cita sigue sin marcarse como enviada: es la evidencia de que la testabilidad es consecuencia directa de aplicar DIP.
 
 ### 5. Por qué H2 real pero gateway mockeado
 
@@ -161,6 +161,8 @@ El workflow no define ningún bloque `services:` (por ejemplo PostgreSQL). Es po
 mvn test      # Pruebas unitarias y de integración de la fase test
 mvn verify    # Ciclo completo (igual que el pipeline) + reporte JaCoCo
 ```
+
+En Windows también se puede usar el wrapper incluido: `.\mvnw.cmd test` o `.\mvnw.cmd verify`.
 
 El reporte de cobertura queda en `target/site/jacoco/index.html`.
 
