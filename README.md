@@ -26,7 +26,7 @@ src/main/java/com/clinica/recordatorios/
 
 Evidencia: 3 pruebas del servicio en verde (4 en total con la prueba de carga de contexto que genera Spring Initializr).
 
-![Parte 1 — pruebas en verde](docs/img/01-parte1-pruebas-verde.png)
+![Parte 1 — pruebas en verde](capturas/parte1-pruebas-verde.png)
 
 ## Parte 2 — Refactor DIP, Integración y CI/CD
 
@@ -40,23 +40,27 @@ Sobre ese mismo proyecto se agregaron:
 
 **Paso 8 — refactor aplicado, 6 pruebas unitarias en verde:**
 
-![Paso 8 — refactor DIP](docs/img/02-paso8-refactor-dip.png)
+![Paso 8 — refactor DIP](capturas/paso8-refactor-dip.png)
 
 **Paso 9 — `@DataJpaTest` contra H2 (se ve el SQL generado por Hibernate):**
 
-![Paso 9 — DataJpaTest](docs/img/03-paso9-datajpatest.png)
+![Paso 9 — DataJpaTest](capturas/paso9-datajpatest.png)
 
 **Paso 10 — `@SpringBootTest` con contexto completo, 9 pruebas en verde:**
 
-![Paso 10 — SpringBootTest](docs/img/04-paso10-springboottest.png)
+![Paso 10 — SpringBootTest](capturas/paso10-springboottest.png)
+
+**mvn verify:**
+
+![mvn verify](capturas/mvn-verify.png)
 
 **Cobertura (JaCoCo):**
 
-![Reporte de cobertura JaCoCo](docs/img/05-jacoco-cobertura.png)
+![Reporte de cobertura JaCoCo](capturas/jacoco-cobertura.png)
 
 **Pipeline de GitHub Actions (estado Success):**
 
-![GitHub Actions — Success](docs/img/06-github-actions-success.png)
+![GitHub Actions — Success](capturas/github-actions-success.png)
 
 ## Decisiones de diseño
 
